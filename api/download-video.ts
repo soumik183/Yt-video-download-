@@ -18,6 +18,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    await play.setToken({
+      useragent: ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36']
+    })
     const info = await play.video_info(`https://www.youtube.com/watch?v=${id}`);
     const format = info.format.find(f => f.itag === parseInt(itag));
 
