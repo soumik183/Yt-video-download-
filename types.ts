@@ -1,4 +1,3 @@
-
 export interface VideoInfo {
     title: string;
     author_name: string;
@@ -24,4 +23,6 @@ export interface VideoFormat {
     quality: string;
     format: 'MP4' | 'MP3';
     label: string;
+    url: string;
+    container: string;
 }
