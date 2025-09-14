@@ -1,47 +1,49 @@
 import play from 'play-dl';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  runtime: 'edge',
-};
-
-export default async function handler(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-  const itag = searchParams.get('itag');
-  const container = searchParams.get('container') || 'mp4';
-  const title = searchParams.get('title') || 'video';
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { id, itag, container, title } = req.query;
   
-  const safeTitle = title.replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
-  const filename = `${safeTitle}.${container}`;
+  const safeTitle = (title as string || 'video').replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
+  const filename = `${safeTitle}.${container as string || 'mp4'}`;
 
-  if (!id) {
-    return new Response(JSON.stringify({ error: 'Valid Video ID is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!id || typeof id !== 'string') {
+    res.status(400).json({ error: 'Valid Video ID is required' });
+    return;
   }
 
-  if (!itag) {
-    return new Response(JSON.stringify({ error: 'Itag is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!itag || typeof itag !== 'string') {
+    res.status(400).json({ error: 'Itag is required' });
+    return;
   }
 
   try {
-    const stream = await play.stream(`https://www.youtube.com/watch?v=${id}`, {
-        itag: parseInt(itag)
-    });
+    const info = await play.video_info(`https://www.youtube.com/watch?v=${id}`);
+    const format = info.format.find(f => f.itag === parseInt(itag));
 
-    const headers = new Headers({
-        'Content-Type': stream.type === 'video' ? 'video/mp4' : 'audio/mpeg',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-cache',
-    });
-
-    if (stream.content_length) {
-        headers.set('Content-Length', stream.content_length);
+    if (!format) {
+      res.status(404).json({ error: `Could not find a downloadable format for itag: ${itag}` });
+      return;
     }
 
-    return new Response(stream.stream, { status: 200, headers });
+    const stream = await play.stream_from_info({
+        ...info,
+        format: [format]
+    });
+
+    res.setHeader('Content-Type', stream.type === 'video' ? 'video/mp4' : 'audio/mpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    if (stream.content_length) {
+      res.setHeader('Content-Length', stream.content_length);
+    }
+
+    stream.stream.pipe(res);
 
   } catch (err) {
     console.error(err);
     const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-    return new Response(JSON.stringify({ error: `Server error while processing download: ${errorMessage}` }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    res.status(500).json({ error: `Server error while processing download: ${errorMessage}` });
   }
 }

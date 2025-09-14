@@ -21,8 +21,9 @@ export const ThumbnailQualities: { key: ThumbnailQuality, label: string, resolut
 
 export interface VideoFormat {
     quality: string;
-    format: 'MP4' | 'MP3';
+    format: 'MP4' | 'MP3' | 'WEBM' | 'OPUS';
     label: string;
     container: string;
     hasAudio: boolean;
+    itag: number;
 }

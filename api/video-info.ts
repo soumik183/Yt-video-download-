@@ -1,10 +1,6 @@
 import play from 'play-dl';
 import type { VideoInfo } from '../types';
 
-export const config = {
-  runtime: 'edge',
-};
-
 export default async function handler(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');

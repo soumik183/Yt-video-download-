@@ -1,10 +1,6 @@
 import play from 'play-dl';
 import type { VideoFormat } from '../types';
 
-export const config = {
-  runtime: 'edge',
-};
-
 export default async function handler(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -24,7 +20,7 @@ export default async function handler(request: Request) {
     const processedFormats = new Map<string, VideoFormat>();
 
     // Process video formats
-    formats.filter(f => f.type === 'video' && f.quality && f.mime_type?.includes('mp4'))
+    formats.filter(f => f.type === 'video' && f.quality && f.mimeType?.includes('mp4'))
       .forEach(f => {
         const qualityLabel = f.quality || 'N/A';
         const key = `${qualityLabel}-mp4`;
@@ -34,13 +30,13 @@ export default async function handler(request: Request) {
             format: 'MP4',
             label: `${qualityLabel}`,
             container: 'mp4',
-            hasAudio: f.audio_channels > 0,
+            hasAudio: (f.audioChannels || 0) > 0,
             itag: f.itag,
           });
         }
       });
 
-    formats.filter(f => f.type === 'video' && f.quality && f.mime_type?.includes('webm'))
+    formats.filter(f => f.type === 'video' && f.quality && f.mimeType?.includes('webm'))
     .forEach(f => {
       const qualityLabel = f.quality || 'N/A';
       const key = `${qualityLabel}-webm`;
@@ -50,20 +46,20 @@ export default async function handler(request: Request) {
           format: 'WEBM',
           label: `${qualityLabel}`,
           container: 'webm',
-          hasAudio: f.audio_channels > 0,
+          hasAudio: (f.audioChannels || 0) > 0,
           itag: f.itag,
         });
       }
     });
 
     // Process audio formats
-    const audioFormats = formats.filter(f => f.type === 'audio').sort((a, b) => (b.audio_bitrate || 0) - (a.audio_bitrate || 0));
+    const audioFormats = formats.filter(f => f.type === 'audio').sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
     if (audioFormats.length > 0) {
-        const bestMp3 = audioFormats.find(f => f.mime_type?.includes('mp4'));
+        const bestMp3 = audioFormats.find(f => f.mimeType?.includes('mp4'));
         if(bestMp3){
             processedFormats.set('audio-mp3', {
-                quality: `${Math.round(bestMp3.audio_bitrate || 0)}kbps`,
+                quality: `${Math.round(bestMp3.bitrate || 0)}kbps`,
                 format: 'MP3',
                 label: 'Audio',
                 container: 'mp3',
@@ -72,10 +68,10 @@ export default async function handler(request: Request) {
             });
         }
 
-        const bestOpus = audioFormats.find(f => f.mime_type?.includes('webm'));
+        const bestOpus = audioFormats.find(f => f.mimeType?.includes('webm'));
         if(bestOpus){
             processedFormats.set('audio-opus', {
-                quality: `${Math.round(bestOpus.audio_bitrate || 0)}kbps`,
+                quality: `${Math.round(bestOpus.bitrate || 0)}kbps`,
                 format: 'OPUS',
                 label: 'Audio',
                 container: 'opus',
