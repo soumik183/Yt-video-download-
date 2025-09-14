@@ -1,68 +1,52 @@
-import ytdl from 'ytdl-core';
+import play from 'play-dl';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  runtime: 'edge',
-};
-
-export default async function handler(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-  const quality = searchParams.get('quality');
-  const container = searchParams.get('container') || 'mp4';
-  const title = searchParams.get('title') || 'video';
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { id, itag, container, title } = req.query;
   
-  const safeTitle = title.replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
-  const filename = `${safeTitle}_${quality}.${container}`;
+  const safeTitle = (title as string || 'video').replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
+  const filename = `${safeTitle}.${container as string || 'mp4'}`;
 
-  if (!id || !ytdl.validateID(id)) {
-    return new Response(JSON.stringify({ error: 'Valid Video ID is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!id || typeof id !== 'string') {
+    res.status(400).json({ error: 'Valid Video ID is required' });
+    return;
   }
 
-  if (!quality) {
-    return new Response(JSON.stringify({ error: 'Quality is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!itag || typeof itag !== 'string') {
+    res.status(400).json({ error: 'Itag is required' });
+    return;
   }
 
   try {
-    const info = await ytdl.getInfo(id);
-    
-    let downloadFormat;
-    if (container === 'mp3') {
-      downloadFormat = ytdl.chooseFormat(info.formats, { filter: 'audioonly', quality: 'highestaudio' });
-    } else {
-      // Find a format that has both video and audio first
-      downloadFormat = info.formats.find(f => f.qualityLabel === quality && f.container === 'mp4' && f.hasVideo && f.hasAudio);
-      // If not found (e.g., for high resolutions), find a video-only format
-      if (!downloadFormat) {
-          downloadFormat = info.formats.find(f => f.qualityLabel === quality && f.container === 'mp4' && f.hasVideo);
-      }
+    await play.setToken({
+      useragent: ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36']
+    })
+    const info = await play.video_info(`https://www.youtube.com/watch?v=${id}`);
+    const format = info.format.find(f => f.itag === parseInt(itag));
+
+    if (!format) {
+      res.status(404).json({ error: `Could not find a downloadable format for itag: ${itag}` });
+      return;
     }
 
-    if (!downloadFormat || !downloadFormat.url) {
-      return new Response(JSON.stringify({ error: `Could not find a downloadable format for quality: ${quality}` }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    const videoResponse = await fetch(downloadFormat.url);
-
-    if (!videoResponse.ok || !videoResponse.body) {
-      return new Response('Failed to fetch video stream from source.', { status: 502 });
-    }
-
-    const headers = new Headers({
-        'Content-Type': downloadFormat.mimeType || (container === 'mp3' ? 'audio/mpeg' : 'video/mp4'),
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-cache', // Ensure fresh response
+    const stream = await play.stream_from_info({
+        ...info,
+        format: [format]
     });
 
-    const contentLength = videoResponse.headers.get('Content-Length');
-    if (contentLength) {
-        headers.set('Content-Length', contentLength);
+    res.setHeader('Content-Type', stream.type === 'video' ? 'video/mp4' : 'audio/mpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    if (stream.content_length) {
+      res.setHeader('Content-Length', stream.content_length);
     }
 
-    return new Response(videoResponse.body, { status: 200, headers });
+    stream.stream.pipe(res);
 
   } catch (err) {
     console.error(err);
     const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-    return new Response(JSON.stringify({ error: `Server error while processing download: ${errorMessage}` }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    res.status(500).json({ error: `Server error while processing download: ${errorMessage}` });
   }
 }

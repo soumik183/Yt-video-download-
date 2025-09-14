@@ -1,79 +1,94 @@
-import ytdl from 'ytdl-core';
+import play from 'play-dl';
 import type { VideoFormat } from '../types';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  runtime: 'edge',
-};
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { id } = req.query;
 
-export default async function handler(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-  const headers = { 
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  };
-
-  if (!id || !ytdl.validateID(id)) {
-    return new Response(JSON.stringify({ error: 'Valid Video ID is required' }), { status: 400, headers });
+  if (!id || typeof id !== 'string') {
+    res.status(400).json({ error: 'Valid Video ID is required' });
+    return;
   }
 
   try {
-    const info = await ytdl.getInfo(`https://www.youtube.com/watch?v=${id}`);
+    await play.setToken({
+      useragent: ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36']
+    })
+    const info = await play.video_info(`https://www.youtube.com/watch?v=${id}`);
     
-    const formats = info.formats;
+    const formats = info.format;
     const processedFormats = new Map<string, VideoFormat>();
 
-    // Process formats with both video and audio (typically up to 720p)
-    ytdl.filterFormats(formats, 'videoandaudio')
-        .filter(f => f.container === 'mp4' && f.qualityLabel)
-        .forEach(f => {
-            processedFormats.set(f.qualityLabel, {
-                quality: f.qualityLabel,
-                format: 'MP4',
-                label: f.qualityLabel,
-                container: 'mp4',
-                hasAudio: true,
-            });
-        });
+    // Process video formats
+    formats.filter(f => f.type === 'video' && f.quality && f.mimeType?.includes('mp4'))
+      .forEach(f => {
+        const qualityLabel = f.quality || 'N/A';
+        const key = `${qualityLabel}-mp4`;
+        if (!processedFormats.has(key)) {
+          processedFormats.set(key, {
+            quality: qualityLabel,
+            format: 'MP4',
+            label: `${qualityLabel}`,
+            container: 'mp4',
+            hasAudio: (f.audioChannels || 0) > 0,
+            itag: f.itag,
+          });
+        }
+      });
 
-    // Process video-only formats (for 1080p and higher)
-    ytdl.filterFormats(formats, 'videoonly')
-        .filter(f => f.container === 'mp4' && f.qualityLabel)
-        .forEach(f => {
-            // Only add this format if we don't already have one with the same quality that includes audio
-            if (!processedFormats.has(f.qualityLabel)) {
-                processedFormats.set(f.qualityLabel, {
-                    quality: f.qualityLabel,
-                    format: 'MP4',
-                    label: f.qualityLabel,
-                    container: 'mp4',
-                    hasAudio: false,
-                });
-            }
+    formats.filter(f => f.type === 'video' && f.quality && f.mimeType?.includes('webm'))
+    .forEach(f => {
+      const qualityLabel = f.quality || 'N/A';
+      const key = `${qualityLabel}-webm`;
+      if (!processedFormats.has(key)) {
+        processedFormats.set(key, {
+          quality: qualityLabel,
+          format: 'WEBM',
+          label: `${qualityLabel}`,
+          container: 'webm',
+          hasAudio: (f.audioChannels || 0) > 0,
+          itag: f.itag,
         });
+      }
+    });
 
-    // Get the best available audio format for MP3 conversion
-    const audioFormats = ytdl.filterFormats(formats, 'audioonly')
-        .sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
+    // Process audio formats
+    const audioFormats = formats.filter(f => f.type === 'audio').sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
     if (audioFormats.length > 0) {
-        const bestAudio = audioFormats[0];
-        processedFormats.set('audio', {
-            quality: `${Math.round(bestAudio.audioBitrate || 0)}kbps`,
-            format: 'MP3',
-            label: 'Audio',
-            container: 'mp3',
-            hasAudio: true, // This is an audio-only format
-        });
+        const bestMp3 = audioFormats.find(f => f.mimeType?.includes('mp4'));
+        if(bestMp3){
+            processedFormats.set('audio-mp3', {
+                quality: `${Math.round(bestMp3.bitrate || 0)}kbps`,
+                format: 'MP3',
+                label: 'Audio',
+                container: 'mp3',
+                hasAudio: true,
+                itag: bestMp3.itag,
+            });
+        }
+
+        const bestOpus = audioFormats.find(f => f.mimeType?.includes('webm'));
+        if(bestOpus){
+            processedFormats.set('audio-opus', {
+                quality: `${Math.round(bestOpus.bitrate || 0)}kbps`,
+                format: 'OPUS',
+                label: 'Audio',
+                container: 'opus',
+                hasAudio: true,
+                itag: bestOpus.itag,
+            });
+        }
     }
 
     const uniqueFormats = Array.from(processedFormats.values());
     
-    // Sort formats: MP4s first (by quality, descending), then the single MP3 option
     const sortedFormats = uniqueFormats.sort((a, b) => {
-        if (a.format === 'MP4' && b.format === 'MP3') return -1;
-        if (a.format === 'MP3' && b.format === 'MP4') return 1;
-        if (a.format === 'MP4' && b.format === 'MP4') {
+        if (a.format === 'MP4' && b.format !== 'MP4') return -1;
+        if (a.format !== 'MP4' && b.format === 'MP4') return 1;
+        if (a.format === 'WEBM' && b.format !== 'WEBM') return -1;
+        if (a.format !== 'WEBM' && b.format === 'WEBM') return 1;
+        if (a.format === 'MP4' && b.format === 'MP4' || a.format === 'WEBM' && b.format === 'WEBM') {
             const qualityA = parseInt(a.quality, 10);
             const qualityB = parseInt(b.quality, 10);
             return qualityB - qualityA;
@@ -81,11 +96,11 @@ export default async function handler(request: Request) {
         return 0;
     });
     
-    return new Response(JSON.stringify(sortedFormats), { status: 200, headers });
+    res.status(200).json(sortedFormats);
 
   } catch (err) {
     console.error(err);
     const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-    return new Response(JSON.stringify({ error: `Server error: Could not process video. It may be private or region-restricted.` }), { status: 500, headers });
+    res.status(500).json({ error: `Server error: Could not process video. It may be private or region-restricted.` });
   }
 }
