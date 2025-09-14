@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { CheckIcon } from './Icons';
 
 const featuresList = [
     { title: 'High-Quality Thumbnails', description: 'Save thumbnails in HD, Full HD, and 4K.' },
-    { title: 'Video Downloader (Demo)', description: 'MP4/MP3 options in 360p, 720p, 1080p, etc.' },
+    { title: 'Video & Audio Downloader', description: 'Download videos (up to 4K) and audio (MP3).' },
     { title: 'Fast & Easy', description: 'Just paste the link, preview, and download.' },
     { title: 'Mobile Optimized', description: 'Works perfectly on Android & iOS devices.' },
     { title: 'Free to Use', description: '100% free with no hidden charges.' },

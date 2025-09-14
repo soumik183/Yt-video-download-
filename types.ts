@@ -24,4 +24,5 @@ export interface VideoFormat {
     format: 'MP4' | 'MP3';
     label: string;
     container: string;
+    hasAudio: boolean;
 }

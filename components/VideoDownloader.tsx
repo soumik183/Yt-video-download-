@@ -35,12 +35,7 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
                     throw new Error(data.error || 'Failed to fetch video formats.');
                 }
                 
-                const sortedData = data.sort((a: VideoFormat, b: VideoFormat) => {
-                    if (a.format < b.format) return 1;
-                    if (a.format > b.format) return -1;
-                    return parseInt(b.quality) - parseInt(a.quality);
-                });
-                setFormats(sortedData);
+                setFormats(data);
 
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -92,12 +87,15 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
                             <a 
                                 key={`${format.quality}-${format.format}`}
                                 href={`/api/download-video?id=${videoId}&quality=${encodeURIComponent(format.quality)}&container=${format.container}&title=${encodeURIComponent(videoTitle)}`}
-                                className="flex flex-col items-center justify-center gap-2 p-4 bg-gray-700 hover:bg-red-600 rounded-lg transition-all transform hover:-translate-y-1"
+                                className="flex flex-col items-center justify-center gap-1 p-4 bg-gray-700 hover:bg-red-600 rounded-lg transition-all transform hover:-translate-y-1 text-center"
                                 aria-label={`Download ${videoTitle} in ${format.quality} ${format.format}`}
                             >
                                 <DownloadIcon />
                                 <span className="font-bold text-lg">{format.quality}</span>
                                 <span className="text-sm text-gray-300">{format.format}</span>
+                                {format.format === 'MP4' && !format.hasAudio && (
+                                     <span className="text-xs text-yellow-400">(No Sound)</span>
+                                )}
                             </a>
                         ))}
                     </div>
