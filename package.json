@@ -2,6 +2,9 @@
   "name": "yt-downloader-vercel-friendly",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "build": "echo \"No frontend build step required. Vercel will handle the API.\""
+  },
   "devDependencies": {
     "typescript": "^5.3.3"
   }
