@@ -85,15 +85,15 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                         {formats.map((format) => (
                             <a 
-                                key={`${format.quality}-${format.format}`}
-                                href={`/api/download-video?id=${videoId}&quality=${encodeURIComponent(format.quality)}&container=${format.container}&title=${encodeURIComponent(videoTitle)}`}
+                                key={format.itag}
+                                href={`/api/download-video?id=${videoId}&itag=${format.itag}&container=${format.container}&title=${encodeURIComponent(videoTitle)}`}
                                 className="flex flex-col items-center justify-center gap-1 p-4 bg-gray-700 hover:bg-red-600 rounded-lg transition-all transform hover:-translate-y-1 text-center"
                                 aria-label={`Download ${videoTitle} in ${format.quality} ${format.format}`}
                             >
                                 <DownloadIcon />
                                 <span className="font-bold text-lg">{format.quality}</span>
                                 <span className="text-sm text-gray-300">{format.format}</span>
-                                {format.format === 'MP4' && !format.hasAudio && (
+                                {(format.format === 'MP4' || format.format === 'WEBM') && !format.hasAudio && (
                                      <span className="text-xs text-yellow-400">(No Sound)</span>
                                 )}
                             </a>

@@ -1,13 +1,9 @@
+import play from 'play-dl';
 import type { VideoInfo } from '../types';
 
 export const config = {
   runtime: 'edge',
 };
-
-// The oEmbed provider can return more fields, but we only care about these and 'error'
-interface NoEmbedResponse extends VideoInfo {
-    error?: string;
-}
 
 export default async function handler(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -20,20 +16,15 @@ export default async function handler(request: Request) {
   }
 
   try {
-    const oembedUrl = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${id}`;
-    const response = await fetch(oembedUrl);
-    
-    if (!response.ok) {
-      throw new Error(`oEmbed provider responded with status: ${response.status}`);
-    }
+    const info = await play.video_basic_info(id);
 
-    const data: NoEmbedResponse = await response.json();
-
-    if (data.error) {
-      return new Response(JSON.stringify({ error: data.error }), { status: 404, headers });
-    }
+    const videoInfo: VideoInfo = {
+      title: info.video_details.title || 'N/A',
+      author_name: info.video_details.channel?.name || 'N/A',
+      thumbnail_url: info.video_details.thumbnails[0].url,
+    };
     
-    return new Response(JSON.stringify(data), { status: 200, headers });
+    return new Response(JSON.stringify(videoInfo), { status: 200, headers });
 
   } catch (err) {
     console.error(err);
