@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "echo \"No frontend build step required. Vercel will handle the API.\""
+    "build": "mkdir public && cp -r components/ utils/ public/ && cp index.html index.tsx App.tsx types.ts metadata.json public/"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
