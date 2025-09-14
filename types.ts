@@ -23,6 +23,5 @@ export interface VideoFormat {
     quality: string;
     format: 'MP4' | 'MP3';
     label: string;
-    url: string;
     container: string;
 }

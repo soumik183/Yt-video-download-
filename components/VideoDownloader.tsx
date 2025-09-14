@@ -12,21 +12,20 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
+    const videoIdMatch = videoUrl.match(/(?:v=)([^&?]+)/);
+    const videoId = videoIdMatch ? videoIdMatch[1] : null;
+
     useEffect(() => {
-        if (!videoUrl) return;
+        if (!videoId) {
+            setError("Could not extract video ID from URL.");
+            setIsLoading(false);
+            return;
+        }
 
         const fetchFormats = async () => {
             setIsLoading(true);
             setError(null);
             setFormats([]);
-
-            const videoIdMatch = videoUrl.match(/(?:v=)([^&?]+)/);
-            if (!videoIdMatch || !videoIdMatch[1]) {
-                setError("Could not extract video ID from URL.");
-                setIsLoading(false);
-                return;
-            }
-            const videoId = videoIdMatch[1];
 
             try {
                 const response = await fetch(`/api/video-formats?id=${videoId}`);
@@ -52,9 +51,7 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
         };
 
         fetchFormats();
-    }, [videoUrl]);
-
-    const sanitizeFilename = (name: string) => name.replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
+    }, [videoId]);
     
     const handleShare = async () => {
         if (navigator.share) {
@@ -94,10 +91,7 @@ export const VideoDownloader: React.FC<VideoDownloaderProps> = ({ videoTitle, vi
                         {formats.map((format) => (
                             <a 
                                 key={`${format.quality}-${format.format}`}
-                                href={format.url}
-                                download={`${sanitizeFilename(videoTitle)}_${format.quality}.${format.container}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={`/api/download-video?id=${videoId}&quality=${encodeURIComponent(format.quality)}&container=${format.container}&title=${encodeURIComponent(videoTitle)}`}
                                 className="flex flex-col items-center justify-center gap-2 p-4 bg-gray-700 hover:bg-red-600 rounded-lg transition-all transform hover:-translate-y-1"
                                 aria-label={`Download ${videoTitle} in ${format.quality} ${format.format}`}
                             >

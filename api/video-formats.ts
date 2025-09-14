@@ -1,4 +1,7 @@
+
 import ytdl from 'ytdl-core';
+// FIX: Import VideoFormat type to explicitly type the formats array.
+import type { VideoFormat } from '../types';
 
 export const config = {
   runtime: 'edge',
@@ -28,13 +31,13 @@ export default async function handler(request: Request) {
     const audioFormats = ytdl.filterFormats(formats, 'audioonly')
         .sort((a,b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
 
-    const availableFormats = [
+    // FIX: Explicitly type `availableFormats` as `VideoFormat[]` to allow for both video and audio format shapes.
+    const availableFormats: VideoFormat[] = [
         ...videoFormats.map(f => ({
             quality: f.qualityLabel,
             format: 'MP4',
             label: `${f.qualityLabel} - Video`,
             container: f.container,
-            url: f.url,
         })),
     ];
 
@@ -44,7 +47,6 @@ export default async function handler(request: Request) {
             format: 'MP3',
             label: 'Audio',
             container: 'mp3',
-            url: audioFormats[0].url,
         })
     }
 
