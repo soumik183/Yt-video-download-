@@ -1,14 +1,13 @@
 import play from 'play-dl';
 import type { VideoInfo } from '../types';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async function handler(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { id } = req.query;
   
-  const headers = { 'Content-Type': 'application/json' };
-
-  if (!id) {
-    return new Response(JSON.stringify({ error: 'Video ID is required' }), { status: 400, headers });
+  if (!id || typeof id !== 'string') {
+    res.status(400).json({ error: 'Video ID is required' });
+    return;
   }
 
   try {
@@ -20,11 +19,11 @@ export default async function handler(request: Request) {
       thumbnail_url: info.video_details.thumbnails[0].url,
     };
     
-    return new Response(JSON.stringify(videoInfo), { status: 200, headers });
+    res.status(200).json(videoInfo);
 
   } catch (err) {
     console.error(err);
     const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-    return new Response(JSON.stringify({ error: `Server error: ${errorMessage}` }), { status: 500, headers });
+    res.status(500).json({ error: `Server error: ${errorMessage}` });
   }
 }
