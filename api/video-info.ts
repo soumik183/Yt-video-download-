@@ -1,7 +1,7 @@
 import type { VideoInfo } from '../types';
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // The oEmbed provider can return more fields, but we only care about these and 'error'

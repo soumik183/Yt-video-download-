@@ -2,7 +2,7 @@ import ytdl from 'ytdl-core';
 import type { VideoFormat } from '../types';
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 export default async function handler(request: Request) {
