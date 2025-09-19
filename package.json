@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "ytdl-core": "^4.11.5"
+    "play-dl": "^1.9.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
